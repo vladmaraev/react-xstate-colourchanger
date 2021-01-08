@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/react-xstate-colourchanger/static/css/main.f29ae65a.chunk.css",
+    "main.js": "/react-xstate-colourchanger/static/js/main.051bfc71.chunk.js",
+    "main.js.map": "/react-xstate-colourchanger/static/js/main.051bfc71.chunk.js.map",
+    "runtime-main.js": "/react-xstate-colourchanger/static/js/runtime-main.04659b03.js",
+    "runtime-main.js.map": "/react-xstate-colourchanger/static/js/runtime-main.04659b03.js.map",
+    "static/js/2.dd1e51df.chunk.js": "/react-xstate-colourchanger/static/js/2.dd1e51df.chunk.js",
+    "static/js/2.dd1e51df.chunk.js.map": "/react-xstate-colourchanger/static/js/2.dd1e51df.chunk.js.map",
+    "index.html": "/react-xstate-colourchanger/index.html",
+    "static/css/main.f29ae65a.chunk.css.map": "/react-xstate-colourchanger/static/css/main.f29ae65a.chunk.css.map",
+    "static/js/2.dd1e51df.chunk.js.LICENSE.txt": "/react-xstate-colourchanger/static/js/2.dd1e51df.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.04659b03.js",
+    "static/js/2.dd1e51df.chunk.js",
+    "static/css/main.f29ae65a.chunk.css",
+    "static/js/main.051bfc71.chunk.js"
+  ]
+}
