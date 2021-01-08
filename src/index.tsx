@@ -196,7 +196,7 @@ const rasaurl = 'https://rasa-nlu-api-00.herokuapp.com/model/parse'
 const nluRequest = (text: string) =>
     fetch(new Request(proxyurl + rasaurl, {
         method: 'POST',
-        headers: { 'Origin': 'http://localhost:3000' }, // only required with proxy
+        headers: { 'Origin': 'http://maraev.me' }, // only required with proxy
         body: `{"text": "${text}"}`
     }))
         .then(data => data.json());
