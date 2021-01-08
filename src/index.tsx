@@ -16,8 +16,8 @@ const colors = ['aqua', 'azure', 'beige', 'bisque', 'black', 'blue', 'brown', 'c
     'turquoise', 'violet', 'white', 'yellow'];
 const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + colors.join(' | ') + ' ;'
 
-var SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList
-const speechRecognitionList = new SpeechGrammarList();
+/* var SpeechGrammarList = SpeechGrammarList || webkitSpeechGrammarList */
+const speechRecognitionList = new webkitSpeechGrammarList();
 speechRecognitionList.addFromString(grammar, 1);
 const grammars = speechRecognitionList;
 
@@ -25,44 +25,6 @@ interface SDSContext {
     recResult: string;
     nluData: any
 }
-
-/* const dmStates = {
- * initial: 'welcome',
- *     states: {
- * welcome: {
- * on: {
- * CLICK: 'askColour'
-    *             }
-    *         },
- *         askColour: {
- * entry: send('LISTEN')
- *             on: {ASR_RESULT: 'finish' }
-    *         },
- *         finish: {}
-    *     }
-    * }
-    *  */
-/* const asrStates = {
- * initial: 'idle',
- *     states: {
- * idle: {
- * on: {
- * CLICK: 'listening',
-    *             }
-    *         },
- *         listening: {
- * entry: 'recStart',
- *             on: {
- * ASR_RESULT: {
- * actions: ['recSaveResult'],
-    *                     target: 'idle'
-    *                 },
-    *             },
-    *             exit: ['repaint', 'recStop']
-    *         },
-    *     }
-    * }
-    *  */
 
 const machine = createMachine<SDSContext>({
     id: 'machine',
@@ -214,7 +176,7 @@ function App() {
     });
     const active = current.matches("listening");
     return (
-        <div className="App" >
+        <div className="App">
             {/* <h1>XState React ColourChanger</h1> */}
             <p>
                 Tap / click then say a color to change the background color of the box.Try
@@ -223,7 +185,7 @@ function App() {
             <button onClick={() => send('CLICK')}>
                 🎤 {active ? 'Listening...' : 'Click me!'}
             </button>
-        </div >
+        </div>
     );
 }
 
