@@ -23,46 +23,46 @@ const grammars = speechRecognitionList;
 
 interface SDSContext {
     recResult: string;
-
+    nluData: any
 }
 
 /* const dmStates = {
- *     initial: 'welcome',
+ * initial: 'welcome',
  *     states: {
- *         welcome: {
- *             on: {
- *                 CLICK: 'askColour'
- *             }
- *         },
+ * welcome: {
+ * on: {
+ * CLICK: 'askColour'
+    *             }
+    *         },
  *         askColour: {
- *             entry: send('LISTEN')
- *             on: { ASR_RESULT: 'finish' }
- *         },
+ * entry: send('LISTEN')
+ *             on: {ASR_RESULT: 'finish' }
+    *         },
  *         finish: {}
- *     }
- * }
- *  */
+    *     }
+    * }
+    *  */
 /* const asrStates = {
- *     initial: 'idle',
+ * initial: 'idle',
  *     states: {
- *         idle: {
- *             on: {
- *                 CLICK: 'listening',
- *             }
- *         },
+ * idle: {
+ * on: {
+ * CLICK: 'listening',
+    *             }
+    *         },
  *         listening: {
- *             entry: 'recStart',
+ * entry: 'recStart',
  *             on: {
- *                 ASR_RESULT: {
- *                     actions: ['recSaveResult'],
- *                     target: 'idle'
- *                 },
- *             },
- *             exit: ['repaint', 'recStop']
- *         },
- *     }
- * }
- *  */
+ * ASR_RESULT: {
+ * actions: ['recSaveResult'],
+    *                     target: 'idle'
+    *                 },
+    *             },
+    *             exit: ['repaint', 'recStop']
+    *         },
+    *     }
+    * }
+    *  */
 
 const machine = createMachine<SDSContext>({
     id: 'machine',
@@ -101,12 +101,32 @@ const machine = createMachine<SDSContext>({
                     entry: 'recStart',
                     on: {
                         ASR_onResult: {
-                            actions: ['recSaveResult'],
-                            target: 'idle'
+                            actions: [
+                                assign<SDSContext>({ recResult: (context: any, event: any) => { return event.recResult } }),
+                                'recLogResult'
+                            ],
+                            target: 'nlu'
                         },
                     },
                     exit: 'recStop'
                 },
+                nlu: {
+                    invoke: {
+                        id: 'getNLU',
+                        src: (context) => nluRequest(context.recResult),
+                        onDone: {
+                            target: 'idle',
+                            actions: [
+                                assign<SDSContext>({ nluData: (context: any, event: any) => { return event.data } }),
+                                'logIntent'
+                            ]
+                        },
+                        onError: {
+                            target: 'idle',
+                            actions: ['nluSaveResult']
+                        }
+                    }
+                }
             }
         },
 
@@ -130,14 +150,17 @@ const machine = createMachine<SDSContext>({
 },
     {
         actions: {
-            recSaveResult: (context, event) => {
-                context.recResult = event.recResult;
-                console.log('Got: ' + event.recResult);
+            recLogResult: (context) => {
+                /* context.recResult = event.recResult; */
+                console.log('<< ASR: ' + context.recResult);
             },
             test: () => {
                 console.log('test')
+            },
+            logIntent: (context) => {
+                /* context.nluData = event.data */
+                console.log('<< NLU intent: ' + context.nluData.intent.name)
             }
-
         },
     });
 
@@ -184,19 +207,19 @@ function App() {
                 speak({ text: 'I heard ' + context.recResult })
             })
             /* speak: asEffect((context) => {
-	     *     console.log('Speaking...');
-	     *     speak({ text: context.ttsAgenda })
-	     * } */
+	     * console.log('Speaking...');
+                *     speak({text: context.ttsAgenda })
+                * } */
         }
     });
     const active = current.matches("listening");
     return (
         <div className="App" >
             {/* <h1>XState React ColourChanger</h1> */}
-            < p >
+            <p>
                 Tap / click then say a color to change the background color of the box.Try
 	    {colors.map((v, _) => <Hint name={v} />)}.
-	    </p >
+	    </p>
             <button onClick={() => send('CLICK')}>
                 🎤 {active ? 'Listening...' : 'Click me!'}
             </button>
@@ -204,6 +227,17 @@ function App() {
     );
 }
 
+/* RASA API
+ *  */
+const proxyurl = "https://cors-anywhere.herokuapp.com/";
+const rasaurl = 'https://rasa-nlu-api-00.herokuapp.com/model/parse'
+const nluRequest = (text: string) =>
+    fetch(new Request(proxyurl + rasaurl, {
+        method: 'POST',
+        headers: { 'Origin': 'http://localhost:3000' }, // only required with proxy
+        body: `{"text": "${text}"}`
+    }))
+        .then(data => data.json());
 
 const rootElement = document.getElementById("root");
 ReactDOM.render(<App />, rootElement);
