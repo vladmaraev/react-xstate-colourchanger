@@ -1,11 +1,13 @@
-import "./styles.css";
+import "./styles.scss";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { Machine, createMachine, assign, send } from "xstate";
 import { useMachine, asEffect, asLayoutEffect } from "@xstate/react";
 
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
+/* import useSpeechRecognition from './asr'; */
 
+import AudioAnalyser from './AudioAnalyser';
 
 const colors = ['aqua', 'azure', 'beige', 'bisque', 'black', 'blue', 'brown', 'chocolate',
     'coral', 'crimson', 'cyan', 'fuchsia', 'ghostwhite', 'gold',
@@ -56,10 +58,10 @@ const machine = createMachine<SDSContext>({
             states: {
                 idle: {
                     on: {
-                        LISTEN: 'listening',
+                        LISTEN: 'recognising',
                     }
                 },
-                listening: {
+                recognising: {
                     entry: 'recStart',
                     on: {
                         ASR_onResult: {
@@ -131,9 +133,13 @@ const machine = createMachine<SDSContext>({
 interface HintProp {
     name: string;
 }
+interface MicProp {
+    active: boolean;
+}
 function Hint(prop: HintProp) {
     return <span style={{ backgroundColor: prop.name }}>{' ' + prop.name}</span>
 }
+
 
 function App() {
     const { speak } = useSpeechSynthesis({
@@ -170,22 +176,23 @@ function App() {
             })
             /* speak: asEffect((context) => {
 	     * console.log('Speaking...');
-                *     speak({text: context.ttsAgenda })
-                * } */
+        *     speak({text: context.ttsAgenda })
+        * } */
         }
     });
-    const active = current.matches("listening");
+
+    const active = current.matches({ asr: 'recognising' });
     return (
         <div className="App">
-            {/* <h1>XState React ColourChanger</h1> */}
             <p>
                 Tap / click then say a color to change the background color of the box.Try
-	    {colors.map((v, _) => <Hint name={v} />)}.
+		{colors.map((v, _) => <Hint name={v} />)}.
 	    </p>
-            <button onClick={() => send('CLICK')}>
-                🎤 {active ? 'Listening...' : 'Click me!'}
+            <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}
+                style={active ? { animation: "glowing 20s linear" } : {}}>
+                {active ? "Listening..." : "Click to talk"}
             </button>
-        </div>
+        </div >
     );
 }
 
