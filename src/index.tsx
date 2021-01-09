@@ -184,10 +184,10 @@ function App() {
     const active = current.matches({ asr: 'recognising' });
     return (
         <div className="App">
-            <p>
+            {/* <p>
                 Tap / click then say a color to change the background color of the box.Try
 		{colors.map((v, _) => <Hint name={v} />)}.
-	    </p>
+		</p> */}
             <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}
                 style={active ? { animation: "glowing 20s linear" } : {}}>
                 {active ? "Listening..." : "Click to talk"}
