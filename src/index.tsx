@@ -31,8 +31,8 @@ interface SDSContext {
 
 type SDSEvent =
     | { type: 'CLICK' }
-    | { type: 'ASR_onResult', value: string }
-    | { type: 'TTS_onEnd' }
+    | { type: 'MATCH', value: string }
+    | { type: 'ENDSPEECH' }
     | { type: 'LISTEN' }
     | { type: 'SPEAK', value: string };
 
@@ -57,88 +57,63 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                     }
                 },
                 welcome: {
-                    entry: say("Tell me the colour"),
-                    on: {
-                        TTS_onEnd: { actions: send('LISTEN') },
-                        ASR_onResult: 'repaint'
+                    initial: 'prompt',
+                    on: { MATCH: 'repaint' },
+                    states: {
+                        prompt: {
+                            entry: say("Tell me the colour"),
+                            on: { ENDSPEECH: 'ask' }
+                        },
+                        ask: {
+                            entry: send('LISTEN'),
+                        },
                     }
                 },
                 repaint: {
-                    entry: [send((context: SDSContext) => ({
-                        type: "SPEAK", value: `Repainting to ${context.recResult}`
-                    })),
-
-                        'repaint'],
-                    always: { target: 'welcome' }
-                }
-            }
-        },
-
-        asr: {
-            initial: 'idle',
-            states: {
-                idle: {
-                    on: {
-                        LISTEN: 'recognising',
-                    }
-                },
-                recognising: {
-                    entry: 'recStart',
-                    on: {
-                        ASR_onResult: {
-                            actions: [
-                                assign<SDSContext>({ recResult: (context: any, event: any) => { return event.value } }),
-                                'recLogResult'
-                            ],
-                            target: 'idle'
+                    initial: 'prompt',
+                    states: {
+                        prompt: {
+                            entry: sayColour,
+                            on: { ENDSPEECH: 'repaint' }
                         },
-                    },
-                    exit: 'recStop'
-                },
-                nlu: {
-                    invoke: {
-                        id: 'getNLU',
-                        src: (context: SDSContext) => nluRequest(context.recResult),
-                        onDone: {
-                            target: 'idle',
-                            actions: [
-                                assign<SDSContext>({ nluData: (context: any, event: any) => { return event.data } }),
-                                'logIntent'
-                            ]
-                        },
-                        onError: {
-                            target: 'idle',
-                            actions: ['nluSaveResult']
+                        repaint: {
+                            entry: 'changeColour',
+                            always: '#machine.dm.welcome'
                         }
                     }
                 }
             }
         },
-
-        tts: {
+        asrtts: {
             initial: 'idle',
             states: {
                 idle: {
                     on: {
-                        SPEAK: {
-                            target: 'speaking',
+                        LISTEN: 'recognising',
+                        SPEAK: 'speaking'
+                    }
+                },
+                recognising: {
+                    entry: 'recStart',
+                    exit: ['recStop', assign<SDSContext>({ recResult: (context: any, event: any) => { return event.value } })],
+                    on: {
+                        MATCH: {
+                            actions: 'recLogResult',
+                            target: 'idle'
                         },
                     }
                 },
                 speaking: {
                     entry: [
                         assign<SDSContext>({ ttsAgenda: (context: any, event: any) => { return event.value } }),
-                        'tts'],
+                        'ttsStart'],
                     on: {
-                        TTS_onEnd: 'idle',
-                        SPEAK: 'speaking'
+                        ENDSPEECH: 'idle',
                     }
                 }
             }
         }
-    }
-
-
+    },
 },
     {
         actions: {
@@ -172,19 +147,18 @@ function Hint(prop: HintProp) {
 function App() {
     const { speak, cancel, speaking } = useSpeechSynthesis({
         onEnd: () => {
-            send('TTS_onEnd');
+            send('ENDSPEECH');
         },
     });
     const { listen, listening, stop } = useSpeechRecognition({
         onResult: (result: any) => {
-            send({ type: "ASR_onResult", value: result });
+            send({ type: "MATCH", value: result });
         },
     });
     const [current, send] = useMachine(machine, {
         actions: {
             recStart: asEffect(() => {
                 console.log('Ready to receive a color command.');
-                if (listening) { stop() };
                 listen({
                     interimResults: false,
                     continuous: false,
@@ -195,35 +169,55 @@ function App() {
                 console.log('Recognition stopped.');
                 stop()
             }),
-            repaint: asEffect((context) => {
+            changeColour: asEffect((context) => {
                 console.log('Repainting...');
                 document.body.style.background = context.recResult;
             }),
-            tts: asEffect((context, effect) => {
+            ttsStart: asEffect((context, effect) => {
                 console.log('Speaking...');
                 speak({ text: context.ttsAgenda })
+            }),
+            ttsCancel: asEffect((context, effect) => {
+                console.log('TTS STOP...');
+                cancel()
             })
             /* speak: asEffect((context) => {
 	     * console.log('Speaking...');
-        *     speak({text: context.ttsAgenda })
-        * } */
+             *     speak({text: context.ttsAgenda })
+             * } */
         }
     });
 
-    const active = current.matches({ asr: 'recognising' });
-    return (
-        <div className="App">
-            {/* <p>
-                Tap / click then say a color to change the background color of the box.Try
-		{colors.map((v, _) => <Hint name={v} />)}.
-		</p> */}
-            <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}
-                style={active ? { animation: "glowing 20s linear" } : {}}>
-                {active ? "Listening..." : "Click to start"}
-            </button>
-        </div >
-    );
-}
+    const recognising = current.matches({ asrtts: 'recognising' });
+    switch (true) {
+        case current.matches({ asrtts: 'recognising' }):
+            return (
+                <div className="App">
+                    <button type="button" className="glow-on-hover"
+                        style={{ animation: "glowing 20s linear" }}>
+                        Listening...
+                    </button>
+                </div >
+            );
+        case current.matches({ asrtts: 'speaking' }):
+            return (
+                <div className="App">
+                    <button type="button" className="glow-on-hover"
+                        style={{ animation: "bordering 1s infinite" }}>
+                        Speaking...
+                    </button>
+                </div >
+            );
+        default:
+            return (
+                <div className="App">
+                    <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}>
+                        Click to start
+                    </button>
+                </div>
+            );
+    }
+};
 
 /* RASA API
  *  */
