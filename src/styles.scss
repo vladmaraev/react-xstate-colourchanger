@@ -22,7 +22,7 @@
     z-index: 0;
     border-radius: 10px;
     content: '';
-    background: linear-gradient(45deg, #ff0000, #ff7300,  #002bff, #7a00ff, #ff00c8, #ff0000);
+    background: linear-gradient(45deg,  #002bff, #7a00ff, #ff00c8, #ff0000, #ff7300, #ff00c8, #7a00ff, #002bff,);
     top: -2px;
     left:-2px;
     background-size: 400%;
@@ -41,8 +41,8 @@
 }
 
 @keyframes bordering {
-  0% { box-shadow: 0 0 -20px #c4a300; }
+  0% { box-shadow: 0 0 -40px #c4a300; }
   40% { box-shadow: 0 0 40px #c4a300; }
   60% { box-shadow: 0 0 40px #c4a300; }
-  100% { box-shadow: 0 0 -20px #c4a300; }
+  100% { box-shadow: 0 0 -40px #c4a300; }
 }
