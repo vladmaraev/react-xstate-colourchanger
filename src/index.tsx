@@ -25,10 +25,26 @@ const grammars = speechRecognitionList;
 
 interface SDSContext {
     recResult: string;
-    nluData: any
+    nluData: any;
+    ttsAgenda: string
 }
 
-const machine = createMachine<SDSContext>({
+type SDSEvent =
+    | { type: 'CLICK' }
+    | { type: 'ASR_onResult', value: string }
+    | { type: 'TTS_onEnd' }
+    | { type: 'LISTEN' }
+    | { type: 'SPEAK', value: string };
+
+const sayColour = send((context: SDSContext) => ({
+    type: "SPEAK", value: `Repainting to ${context.recResult}`
+}))
+
+const say = (text: string) => send((context: SDSContext) => ({
+    type: "SPEAK", value: text
+}))
+
+const machine = Machine<SDSContext, any, SDSEvent>({
     id: 'machine',
     type: 'parallel',
     states: {
@@ -37,18 +53,23 @@ const machine = createMachine<SDSContext>({
             states: {
                 init: {
                     on: {
-                        CLICK: 'askColour'
+                        CLICK: 'welcome'
                     }
                 },
-                askColour: {
-                    entry: send('LISTEN'),
-                    on: { ASR_onResult: 'repaint' }
+                welcome: {
+                    entry: say("Tell me the colour"),
+                    on: {
+                        TTS_onEnd: { actions: send('LISTEN') },
+                        ASR_onResult: 'repaint'
+                    }
                 },
                 repaint: {
-                    entry: [send('SPEAK'), 'repaint'],
-                    on: {
-                        CLICK: 'askColour'
-                    }
+                    entry: [send((context: SDSContext) => ({
+                        type: "SPEAK", value: `Repainting to ${context.recResult}`
+                    })),
+
+                        'repaint'],
+                    always: { target: 'welcome' }
                 }
             }
         },
@@ -66,10 +87,10 @@ const machine = createMachine<SDSContext>({
                     on: {
                         ASR_onResult: {
                             actions: [
-                                assign<SDSContext>({ recResult: (context: any, event: any) => { return event.recResult } }),
+                                assign<SDSContext>({ recResult: (context: any, event: any) => { return event.value } }),
                                 'recLogResult'
                             ],
-                            target: 'nlu'
+                            target: 'idle'
                         },
                     },
                     exit: 'recStop'
@@ -77,7 +98,7 @@ const machine = createMachine<SDSContext>({
                 nlu: {
                     invoke: {
                         id: 'getNLU',
-                        src: (context) => nluRequest(context.recResult),
+                        src: (context: SDSContext) => nluRequest(context.recResult),
                         onDone: {
                             target: 'idle',
                             actions: [
@@ -98,12 +119,19 @@ const machine = createMachine<SDSContext>({
             initial: 'idle',
             states: {
                 idle: {
-                    on: { SPEAK: 'speaking' },
+                    on: {
+                        SPEAK: {
+                            target: 'speaking',
+                        },
+                    }
                 },
                 speaking: {
-                    entry: 'speak',
+                    entry: [
+                        assign<SDSContext>({ ttsAgenda: (context: any, event: any) => { return event.value } }),
+                        'tts'],
                     on: {
-                        TTS_onEnd: 'idle'
+                        TTS_onEnd: 'idle',
+                        SPEAK: 'speaking'
                     }
                 }
             }
@@ -142,20 +170,21 @@ function Hint(prop: HintProp) {
 
 
 function App() {
-    const { speak } = useSpeechSynthesis({
+    const { speak, cancel, speaking } = useSpeechSynthesis({
         onEnd: () => {
             send('TTS_onEnd');
         },
     });
     const { listen, listening, stop } = useSpeechRecognition({
         onResult: (result: any) => {
-            send({ type: "ASR_onResult", recResult: result });
+            send({ type: "ASR_onResult", value: result });
         },
     });
     const [current, send] = useMachine(machine, {
         actions: {
             recStart: asEffect(() => {
                 console.log('Ready to receive a color command.');
+                if (listening) { stop() };
                 listen({
                     interimResults: false,
                     continuous: false,
@@ -170,9 +199,9 @@ function App() {
                 console.log('Repainting...');
                 document.body.style.background = context.recResult;
             }),
-            speak: asEffect((context) => {
+            tts: asEffect((context, effect) => {
                 console.log('Speaking...');
-                speak({ text: 'I heard ' + context.recResult })
+                speak({ text: context.ttsAgenda })
             })
             /* speak: asEffect((context) => {
 	     * console.log('Speaking...');
@@ -190,7 +219,7 @@ function App() {
 		</p> */}
             <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}
                 style={active ? { animation: "glowing 20s linear" } : {}}>
-                {active ? "Listening..." : "Click to talk"}
+                {active ? "Listening..." : "Click to start"}
             </button>
         </div >
     );
