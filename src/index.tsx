@@ -20,7 +20,8 @@ interface SDSContext {
 
 type SDSEvent =
     | { type: 'CLICK' }
-    | { type: 'MATCH', value: string }
+    | { type: 'MATCH' }
+    | { type: 'ASRRESULT', value: string }
     | { type: 'ENDSPEECH' }
     | { type: 'LISTEN' }
     | { type: 'SPEAK', value: string };
@@ -45,7 +46,7 @@ const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             initial: 'prompt',
             on: {
                 MATCH: [
-                    { target: 'stop', cond: (context) => context.recResult == 'stop' },
+                    { target: 'stop', cond: (context) => context.recResult === 'stop' },
                     { target: 'repaint' }]
             },
             states: {
@@ -98,11 +99,15 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                     entry: 'recStart',
                     exit: ['recStop', assign<SDSContext>({ recResult: (context: any, event: any) => { return event.value } })],
                     on: {
-                        MATCH: {
+                        ASRRESULT: {
                             actions: 'recLogResult',
-                            target: 'idle'
+                            target: 'match'
                         },
                     }
+                },
+                match: {
+                    entry: send('MATCH'),
+                    always: 'idle'
                 },
                 speaking: {
                     entry: [
@@ -170,7 +175,7 @@ function App() {
     });
     const { listen, listening, stop } = useSpeechRecognition({
         onResult: (result: any) => {
-            send({ type: "MATCH", value: result });
+            send({ type: "ASRRESULT", value: result });
         },
     });
     const [current, send, service] = useMachine(machine, {
