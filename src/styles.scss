@@ -46,3 +46,9 @@
   60% { box-shadow: 0 0 40px #c4a300; }
   100% { box-shadow: 0 0 -40px #c4a300; }
 }
+
+[data-xstate] {
+  justify-self: stretch;
+  align-self: stretch;
+  border: none;
+}

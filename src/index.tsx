@@ -1,27 +1,16 @@
 import "./styles.scss";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { Machine, createMachine, assign, send } from "xstate";
+import { Machine, createMachine, MachineConfig, assign, send, State, interpret } from "xstate";
 import { useMachine, asEffect, asLayoutEffect } from "@xstate/react";
+import { inspect } from "@xstate/inspect";
+
+inspect({
+    url: "https://statecharts.io/inspect",
+    iframe: false
+});
 
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
-/* import useSpeechRecognition from './asr'; */
-
-import AudioAnalyser from './AudioAnalyser';
-
-const colors = ['aqua', 'azure', 'beige', 'bisque', 'black', 'blue', 'brown', 'chocolate',
-    'coral', 'crimson', 'cyan', 'fuchsia', 'ghostwhite', 'gold',
-    'goldenrod', 'gray', 'green', 'indigo', 'ivory', 'khaki', 'lavender',
-    'lime', 'linen', 'magenta', 'maroon', 'moccasin', 'navy', 'olive',
-    'orange', 'orchid', 'peru', 'pink', 'plum', 'purple', 'red', 'salmon',
-    'sienna', 'silver', 'snow', 'tan', 'teal', 'thistle', 'tomato',
-    'turquoise', 'violet', 'white', 'yellow'];
-const grammar = '#JSGF V1.0; grammar colors; public <color> = ' + colors.join(' | ') + ' ;'
-
-/* var SpeechGrammarList = SpeechGrammarList || webkitSpeechGrammarList */
-const speechRecognitionList = new webkitSpeechGrammarList();
-speechRecognitionList.addFromString(grammar, 1);
-const grammars = speechRecognitionList;
 
 interface SDSContext {
     recResult: string;
@@ -44,45 +33,57 @@ const say = (text: string) => send((context: SDSContext) => ({
     type: "SPEAK", value: text
 }))
 
+const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
+    initial: 'init',
+    states: {
+        init: {
+            on: {
+                CLICK: 'welcome'
+            }
+        },
+        welcome: {
+            initial: 'prompt',
+            on: {
+                MATCH: [
+                    { target: 'stop', cond: (context) => context.recResult == 'stop' },
+                    { target: 'repaint' }]
+            },
+            states: {
+                prompt: {
+                    entry: say("Tell me the colour"),
+                    on: { ENDSPEECH: 'ask' }
+                },
+                ask: {
+                    entry: send('LISTEN'),
+                },
+            }
+        },
+        stop: {
+            entry: say("Ok"),
+            always: 'init'
+        },
+        repaint: {
+            initial: 'prompt',
+            states: {
+                prompt: {
+                    entry: sayColour,
+                    on: { ENDSPEECH: 'repaint' }
+                },
+                repaint: {
+                    entry: 'changeColour',
+                    always: '#root.dm.welcome'
+                }
+            }
+        }
+    }
+})
+
 const machine = Machine<SDSContext, any, SDSEvent>({
-    id: 'machine',
+    id: 'root',
     type: 'parallel',
     states: {
         dm: {
-            initial: 'init',
-            states: {
-                init: {
-                    on: {
-                        CLICK: 'welcome'
-                    }
-                },
-                welcome: {
-                    initial: 'prompt',
-                    on: { MATCH: 'repaint' },
-                    states: {
-                        prompt: {
-                            entry: say("Tell me the colour"),
-                            on: { ENDSPEECH: 'ask' }
-                        },
-                        ask: {
-                            entry: send('LISTEN'),
-                        },
-                    }
-                },
-                repaint: {
-                    initial: 'prompt',
-                    states: {
-                        prompt: {
-                            entry: sayColour,
-                            on: { ENDSPEECH: 'repaint' }
-                        },
-                        repaint: {
-                            entry: 'changeColour',
-                            always: '#machine.dm.welcome'
-                        }
-                    }
-                }
-            }
+            ...dmMachine
         },
         asrtts: {
             initial: 'idle',
@@ -133,16 +134,33 @@ const machine = Machine<SDSContext, any, SDSEvent>({
 
 
 
-interface HintProp {
-    name: string;
+interface Props extends React.HTMLAttributes<HTMLElement> {
+    state: State<SDSContext, any, any, any>;
 }
-interface MicProp {
-    active: boolean;
+const ReactiveButton = (props: Props): JSX.Element => {
+    switch (true) {
+        case props.state.matches({ asrtts: 'recognising' }):
+            return (
+                <button type="button" className="glow-on-hover"
+                    style={{ animation: "glowing 20s linear" }} {...props}>
+                    Listening...
+                </button>
+            );
+        case props.state.matches({ asrtts: 'speaking' }):
+            return (
+                <button type="button" className="glow-on-hover"
+                    style={{ animation: "bordering 1s infinite" }} {...props}>
+                    Speaking...
+                </button>
+            );
+        default:
+            return (
+                <button type="button" className="glow-on-hover" {...props}>
+                    Click to start
+                </button >
+            );
+    }
 }
-function Hint(prop: HintProp) {
-    return <span style={{ backgroundColor: prop.name }}>{' ' + prop.name}</span>
-}
-
 
 function App() {
     const { speak, cancel, speaking } = useSpeechSynthesis({
@@ -155,14 +173,14 @@ function App() {
             send({ type: "MATCH", value: result });
         },
     });
-    const [current, send] = useMachine(machine, {
+    const [current, send, service] = useMachine(machine, {
+        devTools: true,
         actions: {
             recStart: asEffect(() => {
                 console.log('Ready to receive a color command.');
                 listen({
                     interimResults: false,
-                    continuous: false,
-                    grammars: grammars
+                    continuous: true
                 });
             }),
             recStop: asEffect(() => {
@@ -188,36 +206,16 @@ function App() {
         }
     });
 
+
     const recognising = current.matches({ asrtts: 'recognising' });
-    switch (true) {
-        case current.matches({ asrtts: 'recognising' }):
-            return (
-                <div className="App">
-                    <button type="button" className="glow-on-hover"
-                        style={{ animation: "glowing 20s linear" }}>
-                        Listening...
-                    </button>
-                </div >
-            );
-        case current.matches({ asrtts: 'speaking' }):
-            return (
-                <div className="App">
-                    <button type="button" className="glow-on-hover"
-                        style={{ animation: "bordering 1s infinite" }}>
-                        Speaking...
-                    </button>
-                </div >
-            );
-        default:
-            return (
-                <div className="App">
-                    <button type="button" className="glow-on-hover" onClick={() => send('CLICK')}>
-                        Click to start
-                    </button>
-                </div>
-            );
-    }
+    return (
+        <div className="App">
+            <ReactiveButton state={current} onClick={() => send('CLICK')} />
+        </div>
+    )
 };
+
+
 
 /* RASA API
  *  */
@@ -232,4 +230,6 @@ const nluRequest = (text: string) =>
         .then(data => data.json());
 
 const rootElement = document.getElementById("root");
-ReactDOM.render(<App />, rootElement);
+ReactDOM.render(
+    <App />,
+    rootElement);
