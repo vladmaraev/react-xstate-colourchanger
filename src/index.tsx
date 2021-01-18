@@ -1,9 +1,11 @@
 import "./styles.scss";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { Machine, createMachine, MachineConfig, assign, send, State, interpret } from "xstate";
-import { useMachine, asEffect, asLayoutEffect } from "@xstate/react";
+import { Machine, assign, send, State } from "xstate";
+import { useMachine, asEffect } from "@xstate/react";
 import { inspect } from "@xstate/inspect";
+import { dmMachine } from "./dmColourChanger";
+
 
 inspect({
     url: "https://statecharts.io/inspect",
@@ -12,74 +14,8 @@ inspect({
 
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
 
-interface SDSContext {
-    recResult: string;
-    nluData: any;
-    ttsAgenda: string
-}
 
-type SDSEvent =
-    | { type: 'CLICK' }
-    | { type: 'MATCH' }
-    | { type: 'ASRRESULT', value: string }
-    | { type: 'ENDSPEECH' }
-    | { type: 'LISTEN' }
-    | { type: 'SPEAK', value: string };
-
-const sayColour = send((context: SDSContext) => ({
-    type: "SPEAK", value: `Repainting to ${context.recResult}`
-}))
-
-const say = (text: string) => send((context: SDSContext) => ({
-    type: "SPEAK", value: text
-}))
-
-const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
-    initial: 'init',
-    states: {
-        init: {
-            on: {
-                CLICK: 'welcome'
-            }
-        },
-        welcome: {
-            initial: 'prompt',
-            on: {
-                MATCH: [
-                    { target: 'stop', cond: (context) => context.recResult === 'stop' },
-                    { target: 'repaint' }]
-            },
-            states: {
-                prompt: {
-                    entry: say("Tell me the colour"),
-                    on: { ENDSPEECH: 'ask' }
-                },
-                ask: {
-                    entry: send('LISTEN'),
-                },
-            }
-        },
-        stop: {
-            entry: say("Ok"),
-            always: 'init'
-        },
-        repaint: {
-            initial: 'prompt',
-            states: {
-                prompt: {
-                    entry: sayColour,
-                    on: { ENDSPEECH: 'repaint' }
-                },
-                repaint: {
-                    entry: 'changeColour',
-                    always: '#root.dm.welcome'
-                }
-            }
-        }
-    }
-})
-
-const machine = Machine<SDSContext, any, SDSEvent>({
+const machine = Machine<any, any, SDSEvent>({
     id: 'root',
     type: 'parallel',
     states: {
@@ -92,15 +28,19 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                 idle: {
                     on: {
                         LISTEN: 'recognising',
-                        SPEAK: 'speaking'
+                        SPEAK: {
+                            target: 'speaking',
+                            actions: assign((_context, event) => { return { ttsAgenda: event.value } })
+                        }
                     }
                 },
                 recognising: {
                     entry: 'recStart',
-                    exit: ['recStop', assign<SDSContext>({ recResult: (context: any, event: any) => { return event.value } })],
+                    exit: 'recStop',
                     on: {
                         ASRRESULT: {
-                            actions: 'recLogResult',
+                            actions: ['recLogResult',
+                                assign((_context, event) => { return { recResult: event.value } })],
                             target: 'match'
                         },
                     }
@@ -110,9 +50,7 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                     always: 'idle'
                 },
                 speaking: {
-                    entry: [
-                        assign<SDSContext>({ ttsAgenda: (context: any, event: any) => { return event.value } }),
-                        'ttsStart'],
+                    entry: 'ttsStart',
                     on: {
                         ENDSPEECH: 'idle',
                     }
