@@ -15,7 +15,7 @@ inspect({
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
 
 
-const machine = Machine<any, any, SDSEvent>({
+const machine = Machine<SDSContext, any, SDSEvent>({
     id: 'root',
     type: 'parallel',
     states: {
@@ -41,13 +41,15 @@ const machine = Machine<any, any, SDSEvent>({
                         ASRRESULT: {
                             actions: ['recLogResult',
                                 assign((_context, event) => { return { recResult: event.value } })],
-                            target: 'match'
+                            target: '.match'
+                        },
+                        RECOGNISED: 'idle'
+                    },
+                    states: {
+                        match: {
+                            entry: send('RECOGNISED'),
                         },
                     }
-                },
-                match: {
-                    entry: send('MATCH'),
-                    always: 'idle'
                 },
                 speaking: {
                     entry: 'ttsStart',
@@ -61,14 +63,14 @@ const machine = Machine<any, any, SDSEvent>({
 },
     {
         actions: {
-            recLogResult: (context) => {
+            recLogResult: (context: SDSContext) => {
                 /* context.recResult = event.recResult; */
                 console.log('<< ASR: ' + context.recResult);
             },
             test: () => {
                 console.log('test')
             },
-            logIntent: (context) => {
+            logIntent: (context: SDSContext) => {
                 /* context.nluData = event.data */
                 console.log('<< NLU intent: ' + context.nluData.intent.name)
             }
@@ -150,7 +152,6 @@ function App() {
     });
 
 
-    const recognising = current.matches({ asrtts: 'recognising' });
     return (
         <div className="App">
             <ReactiveButton state={current} onClick={() => send('CLICK')} />

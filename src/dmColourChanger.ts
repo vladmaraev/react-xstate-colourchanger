@@ -20,7 +20,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
         welcome: {
             initial: 'prompt',
             on: {
-                MATCH: [
+                RECOGNISED: [
                     { target: 'stop', cond: (context) => context.recResult === 'stop' },
                     { target: 'repaint' }]
             },
