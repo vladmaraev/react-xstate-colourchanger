@@ -1,7 +1,4 @@
 * Colour changer (React + xstate + Webspeech API)
-
-State machine: https://xstate.js.org/viz/?gist=3845cb54a087a6c28b85d53016fc0da5
-
 To run:
 #+begin_src sh
   npm install
