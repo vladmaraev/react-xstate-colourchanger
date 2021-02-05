@@ -35,7 +35,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             initial: "prompt",
             on: {
                 RECOGNISED: [{
-                    cond: (context) => grammar[context.recResult].person !== undefined,
+                    cond: (context) => "person" in (grammar[context.recResult] || {}),
                     actions: assign((context) => { return { person: grammar[context.recResult].person } }),
                     target: "day"
 
