@@ -9,6 +9,21 @@ function say(text: string): Action<SDSContext, SDSEvent> {
     return send((_context: SDSContext) => ({ type: "SPEAK", value: text }))
 }
 
+function promptAndAsk(prompt: string): MachineConfig<SDSContext, any, SDSEvent> {
+    return ({
+	initial: 'prompt',
+	states: {
+            prompt: {
+		entry: say(prompt),
+		on: { ENDSPEECH: 'ask' }
+            },
+            ask: {
+		entry: send('LISTEN'),
+            },
+	}})
+}
+
+
 export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
     initial: 'init',
     states: {
@@ -18,21 +33,12 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
             }
         },
         welcome: {
-            initial: 'prompt',
             on: {
                 RECOGNISED: [
                     { target: 'stop', cond: (context) => context.recResult === 'stop' },
                     { target: 'repaint' }]
             },
-            states: {
-                prompt: {
-                    entry: say("Tell me the colour"),
-                    on: { ENDSPEECH: 'ask' }
-                },
-                ask: {
-                    entry: send('LISTEN'),
-                },
-            }
+	    ...promptAndAsk("Tell me the colour")
         },
         stop: {
             entry: say("Ok"),
