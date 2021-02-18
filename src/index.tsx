@@ -4,7 +4,7 @@ import * as ReactDOM from "react-dom";
 import { Machine, assign, send, State } from "xstate";
 import { useMachine, asEffect } from "@xstate/react";
 import { inspect } from "@xstate/inspect";
-import { dmMachine } from "./dmSearch";
+import { dmMachine } from "./dmColourChanger";
 
 
 inspect({
@@ -35,7 +35,7 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                     }
                 },
                 recognising: {
-		    initial: 'progress',
+                    initial: 'progress',
                     entry: 'recStart',
                     exit: 'recStop',
                     on: {
@@ -47,8 +47,8 @@ const machine = Machine<SDSContext, any, SDSEvent>({
                         RECOGNISED: 'idle'
                     },
                     states: {
-		    	progress: {
-			},	    					
+                        progress: {
+                        },
                         match: {
                             entry: send('RECOGNISED'),
                         },
