@@ -5,7 +5,7 @@ function say(text: string): Action<SDSContext, SDSEvent> {
 }
 
 const saySnippet: Action<SDSContext, SDSEvent> = send((context: SDSContext) => ({
-    type: "SPEAK", value: `${context.snippet}`
+    type: "SPEAK", value: `${context.snippet.substring(0, 160)}`
 }))
 
 function listen(): Action<SDSContext, SDSEvent> {
@@ -54,7 +54,8 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = ({
                 src: (context, event) => duckQuery(context.query),
                 onDone: {
                     target: 'answer',
-                    actions: [assign((context, event) => { return {snippet: event.data.AbstractText }}),
+                    actions: [assign((context, event) => { return {snippet: event.data.AbstractText,
+								   img: "http://duckduckgo.com" + event.data.Image}}),
 			      (context:SDSContext, event:any) => console.log(event.data)]
                 },
 		onError: {

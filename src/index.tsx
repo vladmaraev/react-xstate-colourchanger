@@ -12,6 +12,7 @@ inspect({
     iframe: false
 });
 
+
 import { useSpeechSynthesis, useSpeechRecognition } from 'react-speech-kit';
 
 
@@ -157,10 +158,16 @@ function App() {
 
     return (
         <div className="App">
-            <ReactiveButton state={current} onClick={() => send('CLICK')} />
+	    <div>
+		<img src={current.context.img}/>
+            </div>
+            <div>
+		<ReactiveButton state={current} onClick={() => send('CLICK')} />
+            </div>
         </div>
     )
 };
+
 
 
 

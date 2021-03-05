@@ -7,7 +7,8 @@ interface SDSContext {
     nluData: any;
     ttsAgenda: string;
     query: string;
-    snippet: string
+    snippet: string;
+    img: string;
 }
 
 type SDSEvent =
